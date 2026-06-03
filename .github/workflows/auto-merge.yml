@@ -3,36 +3,50 @@ name: Auto-merge PR
 on:
   pull_request:
     branches: [ main ]
-    types: [ labeled, synchronize, reopened, ready_for_review ]
+    types: [synchronize, reopened, ready_for_review]
 
 jobs:
-  auto-merge:
-    if: github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'development'
+  automerge:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - name: Wait for status checks
+      - name: Wait for required status checks
         uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prNumber = context.payload.pull_request.number;
-            let allChecksPassed = false;
+            const requiredChecks = ['CI/CD Pipeline / test (pull_request)']; // именно эту проверку ждём
+
+            console.log(`Waiting for checks: ${requiredChecks.join(', ')}`);
+
+            let allPassed = false;
             for (let i = 0; i < 30; i++) {
               const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
               const { data: checks } = await github.rest.checks.listForRef({
                 owner, repo, ref: pr.head.sha
               });
-              if (checks.check_runs.every(c => c.status === 'completed' && c.conclusion === 'success')) {
-                allChecksPassed = true;
+
+              const relevantChecks = checks.check_runs.filter(c => requiredChecks.includes(c.name));
+              const completed = relevantChecks.every(c => c.status === 'completed');
+              const successful = relevantChecks.every(c => c.conclusion === 'success');
+
+              if (completed && successful) {
+                allPassed = true;
+                console.log('All required checks passed!');
                 break;
               }
+              console.log(`Waiting... (attempt ${i+1}/30)`);
               await new Promise(resolve => setTimeout(resolve, 10000));
             }
-            if (!allChecksPassed) throw new Error('Not all checks passed');
+
+            if (!allPassed) {
+              throw new Error('Required checks did not pass within timeout');
+            }
+
       - name: Merge pull request
         uses: actions/github-script@v7
         with:
@@ -43,3 +57,4 @@ jobs:
               pull_number: context.payload.pull_request.number,
               merge_method: 'merge'
             });
+            console.log('PR merged automatically');
