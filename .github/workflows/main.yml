@@ -25,3 +25,15 @@ jobs:
 
     - name: Запуск тестов
       run: pytest
+
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Проверка наличия README.md
+      run: test -f README.md && echo "Документация найдена" || (echo "README.md отсутствует" && exit 1)
+    - name: Сохранение документации как артефакта
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: README.md
