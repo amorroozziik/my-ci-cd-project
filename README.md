@@ -10,5 +10,5 @@ pip install -r requirements.txt
 pytest
 
 ## Функции
-- add(a, b) – сложение
-- multiply(a, b) – умножение
+- add(a, b) – сложение.
+- multiply(a, b) – умножение.
